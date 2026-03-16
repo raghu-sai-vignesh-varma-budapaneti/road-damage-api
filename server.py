@@ -1,26 +1,34 @@
-import os
 from flask import Flask, request, jsonify
 from ultralytics import YOLO
 from PIL import Image
+import traceback
 
 app = Flask(__name__)
+
 model = YOLO("best.pt")
 
 @app.route("/predict", methods=["POST"])
 def predict():
-    image = request.files["image"]
-    img = Image.open(image)
-    results = model(img)
+    try:
+        image = request.files["image"]
+        img = Image.open(image)
 
-    detections = []
-    for r in results:
-        for box in r.boxes:
-            label = model.names[int(box.cls)]
-            conf = float(box.conf)
-            detections.append({"damage_type": label, "confidence": conf})
+        results = model(img)
 
-    return jsonify(detections)
+        detections = []
 
-# IMPORTANT: use PORT env var (fallback to 10000)
-port = int(os.environ.get("PORT", 10000))
-app.run(host="0.0.0.0", port=port)
+        for r in results:
+            for box in r.boxes:
+                label = model.names[int(box.cls)]
+                conf = float(box.conf)
+
+                detections.append({
+                    "damage_type": label,
+                    "confidence": conf
+                })
+
+        return jsonify(detections)
+
+    except Exception as e:
+        print(traceback.format_exc())
+        return jsonify({"error": str(e)})
