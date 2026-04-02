@@ -8,7 +8,7 @@ import traceback
 app = Flask(__name__)
 
 # 🔥 IMPORTANT: use lightweight if memory issue
-model = YOLO("yolov8n.pt")   # OR "best.pt" if stable
+model = YOLO("best.pt")   # OR "best.pt" if stable
 
 @app.route("/predict", methods=["POST"])
 def predict():
