@@ -1,17 +1,27 @@
 from flask import Flask, request, jsonify
 from ultralytics import YOLO
-from PIL import Image
+import base64
+import numpy as np
+import cv2
 import traceback
 
 app = Flask(__name__)
 
-model = YOLO("best.pt")
+# 🔥 IMPORTANT: use lightweight if memory issue
+model = YOLO("yolov8n.pt")   # OR "best.pt" if stable
 
 @app.route("/predict", methods=["POST"])
 def predict():
     try:
-        image = request.files["image"]
-        img = Image.open(image)
+        data = request.json
+
+        # ✅ get base64 image
+        img_b64 = data["image"]
+
+        # decode
+        img_bytes = base64.b64decode(img_b64)
+        nparr = np.frombuffer(img_bytes, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
         results = model(img)
 
@@ -19,15 +29,20 @@ def predict():
 
         for r in results:
             for box in r.boxes:
-                label = model.names[int(box.cls)]
-                conf = float(box.conf)
+                x1, y1, x2, y2 = map(int, box.xyxy[0])
+                conf = float(box.conf[0])
+                cls = int(box.cls[0])
 
                 detections.append({
-                    "damage_type": label,
-                    "confidence": conf
+                    "label": model.names[cls],
+                    "confidence": conf,
+                    "x": x1,
+                    "y": y1,
+                    "w": x2 - x1,
+                    "h": y2 - y1
                 })
 
-        return jsonify(detections)
+        return jsonify({"detections": detections})
 
     except Exception as e:
         print(traceback.format_exc())
